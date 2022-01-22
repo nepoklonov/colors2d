@@ -1,28 +1,71 @@
 import kotlinx.browser.document
+import kotlinx.coroutines.*
 import kotlinx.css.*
-import kotlinx.html.js.onClickFunction
-import react.Props
+import model.*
+import react.*
+import react.dom.html.ReactHTML.h1
 import react.dom.render
-import react.fc
-import react.useState
+import services.SquareService
 import styled.css
-import styled.styledButton
+import styled.styledDiv
+import styled.styledH2
+import kotlin.time.Duration.Companion.seconds
 
 fun main() {
     render(document.getElementById("react-app")!!) {
-        child(helloWorld)
+        h1 {
+            +"Квадрат"
+        }
+        child(Main::class) { }
     }
 }
 
-val helloWorld = fc<Props> {
-    var flag by useState(false)
-    styledButton {
-        css {
-            color = if (flag) Color.red else Color.blue
+external interface MainState : State {
+    var square: Square?
+}
+
+class Main : RComponent<Props, MainState>() {
+    init {
+        state.square = null
+    }
+
+    override fun componentDidMount() {
+        val service = SquareService(Job())
+        MainScope().launch {
+            while (true) {
+                val square = service.getSquare()
+                setState { this.square = square.toSquare() }
+                delay(0.1.seconds)
+            }
         }
-        attrs.onClickFunction = {
-            flag = !flag
+    }
+
+    override fun RBuilder.render() {
+        state.square?.toColors()?.let { colors ->
+            styledDiv {
+                colors.forEach { line ->
+                    styledDiv {
+                        css {
+                            display = Display.flex
+                        }
+                        line.forEach {
+                            styledDiv {
+                                css {
+                                    width = (500 / colors.size).px
+                                    height = (500 / colors.size).px
+                                    backgroundColor = rgb(it.r, it.g, it.b)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-        +"Hello world"
+
+        state.square?.calculateGoodness(Quadratic)?.let {
+            styledH2 {
+                +"Хорошесть = -$it"
+            }
+        }
     }
 }
